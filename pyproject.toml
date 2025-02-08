@@ -12,5 +12,6 @@ dependencies = [
     "pandas>=2.2.3",
     "polars>=1.22.0",
     "python-dotenv>=1.0.1",
+    "seaborn>=0.13.2",
     "shiny>=1.2.1",
 ]

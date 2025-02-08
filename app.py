@@ -5,7 +5,7 @@ load_dotenv()
 import base64
 from pathlib import Path
 
-from chatlas import ChatAnthropic
+from chatlas import ChatAnthropic, ChatOpenAI
 from shiny import App, reactive, render, req, ui
 
 from executor import ExecutionContext
@@ -29,11 +29,17 @@ def server(input, output, session):
     chat_session = ChatAnthropic(
         system_prompt=system_prompt, model="claude-3-5-sonnet-latest"
     )
-    ec = ExecutionContext()
+    # chat_session = ChatOpenAI(
+    #     system_prompt=system_prompt, model="o3-mini"
+    # )
+
+    dpi = 100
+    size_inches = (640/dpi, 480/dpi)  # (8, 6) inches
+    ec = ExecutionContext(default_plot_size=size_inches, dpi=dpi)
 
     @chat_session.register_tool
     async def run_python_code(code: str):
-        """Executes R code in the current session"""
+        """Executes Python code in the current session"""
 
         stream_id = chat._current_stream_id
 
@@ -64,10 +70,10 @@ def server(input, output, session):
                     await emit("Error: " + str(result.error) + "\n")
                 if result.plot_data is not None:
                     # Form data URI from result.plot_data raw bytes
-                    encoded = base64.b64encode(result.plot_data).decode('utf-8')
+                    encoded = base64.b64encode(result.plot_data.png_data).decode('utf-8')
                     data_uri = f"data:image/png;base64,{encoded}"
                     img_tag = f'<img src="{data_uri}" alt="Plot">'
-                    await emit(img_tag + "\n")
+                    await emit("\n```\n\n" + img_tag + "\n\n```\n")
 
                 # For model
                 results.append({

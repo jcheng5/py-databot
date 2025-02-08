@@ -66,7 +66,7 @@ df.select(
 ).to_pandas().corr()
 
 # Check for duplicate rows
-df.with_row_count().groupby(df.columns).agg(pl.col("row_nr").count().alias("count")).filter(pl.col("count") > 1)
+df.with_row_count().group_by(df.columns).agg(pl.col("row_nr").count().alias("count")).filter(pl.col("count") > 1)
 
 # Random sample of rows for inspection
 df.sample(n=5)
@@ -74,6 +74,10 @@ df.sample(n=5)
 # Estimated memory usage (in bytes)
 df.estimated_size()
 ```
+
+## Matplotlib tips
+
+* It's essential to call `plt.show()` or `fig.show()` each time you want to display a plot; otherwise the plot will not be seen.
 
 ## Showing data frames
 
