@@ -1,0 +1,7 @@
+shiny
+chatlas
+anthropic
+python-dotenv
+pandas
+matplotlib
+polars
