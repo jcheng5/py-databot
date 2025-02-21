@@ -8,3 +8,7 @@
   text-decoration-color: var(--bs-link-color);
   cursor: pointer;
 }
+
+.result-plot {
+  max-width: 100%;
+}

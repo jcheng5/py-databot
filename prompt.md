@@ -32,49 +32,6 @@ Don't run any Python code in this first interaction--let the user make the first
 * The output of any Python code will be both returned from the tool call, and also printed to the user; the same with stdout/stderr, errors, and plots.
 * DO NOT attempt to install packages. Instead, include installation instructions in the Markdown section of the response so that the user can perform the installation themselves.
 
-## Exploring data
-
-Here are some recommended ways of getting started with unfamiliar data.
-
-```python
-import polars as pl
-import pandas as pd  # Only needed for computing correlations
-
-# Load the dataset (adjust file path/options as needed)
-df = pl.read_csv("path/to/your/dataset.csv")
-
-# Basic overview
-df.schema
-df.head(5)
-df.tail(5)
-
-# Summary statistics for numeric columns
-df.describe()
-
-# Missing values per column
-df.null_count()
-
-# Unique value counts per column
-{col: df.select(pl.col(col)).unique().height for col in df.columns}
-
-# Data types of columns
-df.dtypes
-
-# Correlation matrix for numeric columns
-df.select(
-    [col for col, dtype in df.schema.items() if dtype in {pl.Int64, pl.Int32, pl.Float64, pl.Float32}]
-).to_pandas().corr()
-
-# Check for duplicate rows
-df.with_row_count().group_by(df.columns).agg(pl.col("row_nr").count().alias("count")).filter(pl.col("count") > 1)
-
-# Random sample of rows for inspection
-df.sample(n=5)
-
-# Estimated memory usage (in bytes)
-df.estimated_size()
-```
-
 ## Matplotlib tips
 
 * It's essential to call `plt.show()` or `fig.show()` each time you want to display a plot; otherwise the plot will not be seen.
@@ -86,7 +43,7 @@ While using `run_python_code`, to look at a data frame (e.g. `df`), instead of `
 ## Missing data
 
 * Watch carefully for missing values; when `None`/`nan` values appear in vectors and data frames, be curious about where they came from, and be sure to call the user's attention to them.
-*	Be proactive about detecting missing values by using Polars’ is_null() method liberally at the beginning of an analysis.
+*	Be proactive about detecting missing values by explicitly testing for missingness after loading data.
 *	One helpful strategy to determine where missing values come from is to look for correlations between missing values (using indicators derived via is_null()) and values of other columns in the same DataFrame.
 *	Another helpful strategy is to simply inspect sample rows that contain missing data and look for suspicious patterns.
 
