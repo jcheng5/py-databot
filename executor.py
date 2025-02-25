@@ -1,12 +1,12 @@
 import ast
 import contextlib
 import io
-import sys
-from dataclasses import dataclass
 from typing import Any, Callable, List, NamedTuple, Optional, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
+import polars as pl
 from matplotlib.figure import Figure
 
 
@@ -187,3 +187,23 @@ class ExecutionContext:
             results.append(StatementResult("", "", None, None, e))
             
         return results
+
+def render_value(obj: Any) -> tuple[Optional[str], Optional[Any]]:
+    """
+    Given an arbitrary object, returns two representations: one to be shown to
+    the user (Markdown) and one to be returned to the model. This is
+    particularly important for data frames, as Claude understands JSON much
+    better than tabular representations.
+    """
+    
+    def default_repr():
+        return obj.__repr__() if obj is not None else None
+
+    if obj is None:
+        return None, None
+    if isinstance(obj, pl.DataFrame):
+        return default_repr(), obj.to_dicts()
+    if isinstance(obj, pd.DataFrame):
+        return "```\n\n" + obj._repr_html_() + "\n\n```\n", obj.to_dict(orient="records")
+    else:
+        return default_repr(), default_repr()

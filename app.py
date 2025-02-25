@@ -9,7 +9,7 @@ from chatlas.types import ContentImageInline, ContentText, ContentToolResult
 from dotenv import load_dotenv
 from shiny import App, reactive, ui
 
-from executor import ExecutionContext
+from executor import ExecutionContext, render_value
 
 load_dotenv()
 
@@ -76,16 +76,15 @@ def server(input, output, session):
         await emit("\n```text\n")
         try:
             for result in ec.run_code(code):
+                return_value_repr = None
+
                 # For human
                 if result.output:
                     await emit(result.output)
-                return_value_repr = (
-                    result.return_value.__repr__()
-                    if result.return_value is not None
-                    else None
-                )
                 if result.return_value is not None:
-                    await emit(return_value_repr + "\n")
+                    user_value, model_value = render_value(result.return_value)
+                    await emit(user_value + "\n")
+                    return_value_repr = model_value
                 if result.error is not None:
                     # TODO: Traceback
                     last_error = result.error
