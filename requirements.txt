@@ -1,5 +1,5 @@
 shiny
-chatlas
+chatlas @ git+https://github.com/posit-dev/chatlas@jcheng5-feature-anthropic-tool-results-content-list
 anthropic
 python-dotenv
 pandas

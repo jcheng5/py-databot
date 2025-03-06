@@ -122,6 +122,12 @@ def server(input, output, session):
                     results.append(ContentImageInline("image/png", encoded))
         finally:
             await emit("```\n")
+        
+        if last_error is not None:
+            # Anthropic doesn't accept images if there's an error. Need to strip
+            # them out, which is unfortunate.
+            # TODO: At least let the model know an image was redacted
+            results = [r for r in results if not isinstance(r, ContentImageInline)]
 
         return ContentToolResult("", results, last_error)
 
