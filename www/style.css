@@ -2,13 +2,6 @@
   font-size: 0.875em;
 }
 
-.suggested-prompt {
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-decoration-color: var(--bs-link-color);
-  cursor: pointer;
-}
-
 .result-plot {
   max-width: 100%;
 }

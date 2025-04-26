@@ -5,3 +5,5 @@ python-dotenv
 pandas
 matplotlib
 polars
+pyarrow
+plotnine

@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from shiny import App, reactive, ui
 
 from executor import ExecutionContext, render_value
+from mdstreamer import MarkdownStreamer
 
 load_dotenv()
 
@@ -57,79 +58,53 @@ def server(input, output, session):
     async def run_python_code(code: str):
         """Executes Python code in the current session"""
 
-        stream_id = chat._current_stream_id
-
         async def emit(content: str) -> None:
-            await chat._append_message(
-                {
-                    "type": "assistant",
-                    "content": content,
-                },
-                chunk=True,
-                stream_id=stream_id,
-            )
+            async with chat.message_stream_context() as stream:
+                await stream.append(content)
 
-        await emit(f"\n\n```python\n{code}\n```\n")
+        await emit(f"\n\n`````python\n{code}\n`````\n\n")
+
+        mds = MarkdownStreamer(emit)
 
         results = []
-        last_error = None
-        await emit("\n```text\n")
         try:
             for result in ec.run_code(code):
                 return_value_repr = None
 
                 # For human
                 if result.output:
-                    await emit(result.output)
+                    await mds.code(result.output, ensure_newline_after=True)
                 if result.return_value is not None:
                     user_value, model_value = render_value(result.return_value)
-                    await emit(user_value + "\n")
+                    await mds.code(user_value, ensure_newline_after=True)
                     return_value_repr = model_value
                 if result.error is not None:
                     # TODO: Traceback
-                    last_error = result.error
-                    await emit("Error: " + str(result.error) + "\n")
+                    await mds.code("Error: " + str(result.error) + "\n")
                 if result.plot_data is not None:
                     # Form data URI from result.plot_data raw bytes
                     encoded = base64.b64encode(result.plot_data.png_data).decode(
                         "utf-8"
                     )
                     data_uri = f"data:image/png;base64,{encoded}"
-                    img_tag = f'<img class="result-plot" src="{data_uri}" alt="Plot">'
-                    await emit("\n```\n\n" + img_tag + "\n\n```\n")
+                    img_tag = f'<img class="result-plot" src="{data_uri}" alt="Plot">\n'
+                    await mds.md(img_tag)
 
                 # For model
-                results.append(
-                    ContentText(
-                        json.dumps(
-                            {
-                                k: v
-                                for k, v in {
-                                    "source": result.source,
-                                    "output": result.output,
-                                    "return_value": return_value_repr,
-                                    "success": result.error is None,
-                                    "error": (
-                                        str(result.error) if result.error else None
-                                    ),
-                                }.items()
-                                if v is not None
-                            }
-                        )
-                    )
+                model_text_output = (
+                    (result.output + "\n" if result.output else "")
+                    + (return_value_repr + "\n" if return_value_repr else "")
+                    + (f"Error: {str(result.error)}\n" if result.error else "")
                 )
+                if model_text_output:
+                    results.append(ContentText(model_text_output))
                 if result.plot_data is not None:
                     results.append(ContentImageInline("image/png", encoded))
         finally:
-            await emit("```\n")
+            await mds.close()
         
-        if last_error is not None:
-            # Anthropic doesn't accept images if there's an error. Need to strip
-            # them out, which is unfortunate.
-            # TODO: At least let the model know an image was redacted
-            results = [r for r in results if not isinstance(r, ContentImageInline)]
-
-        return ContentToolResult("", results, last_error)
+        coalesced_results = coalesce_text_results(results)
+        return ContentToolResult("", coalesced_results, None)
 
     @chat.on_user_submit
     async def on_user_submit():
@@ -140,6 +115,26 @@ def server(input, output, session):
     async def kickstart():
         response = await chat_session.stream_async("Hello")
         await chat.append_message_stream(response)
+
+
+def coalesce_text_results(results):
+    """Coalesce consecutive ContentText objects into single ContentText objects."""
+    coalesced = []
+    current_text = ""
+    
+    for result in results:
+        if isinstance(result, ContentText):
+            current_text += result.text
+        else:
+            if current_text:
+                coalesced.append(ContentText(current_text))
+                current_text = ""
+            coalesced.append(result)
+    
+    if current_text:
+        coalesced.append(ContentText(current_text))
+        
+    return coalesced
 
 
 app = App(app_ui, server, static_assets=here / "www")
