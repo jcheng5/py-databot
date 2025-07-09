@@ -1,7 +1,6 @@
 import ast
 import contextlib
 import io
-import json
 from typing import Any, Callable, List, NamedTuple, Optional, Tuple
 
 import matplotlib
@@ -210,7 +209,7 @@ class ExecutionContext:
         return results
 
 
-def render_value(obj: Any) -> tuple[Optional[str], Optional[str]]:
+def render_value(obj: Any) -> tuple[bool, Optional[str], Optional[str]]:
     """
     Given an arbitrary object, returns two representations: one to be shown to
     the user (Markdown) and one to be returned to the model. This is
@@ -222,12 +221,30 @@ def render_value(obj: Any) -> tuple[Optional[str], Optional[str]]:
         return obj.__repr__() if obj is not None else None
 
     if obj is None:
-        return None, None
+        return True, None, None
     if isinstance(obj, pl.DataFrame):
-        return default_repr(), json.dumps(obj.to_dicts())
+        # return False, default_repr(), json.dumps(obj.to_dicts())
+        obj = obj.to_pandas()
+        # return False, obj.style._repr_html_(), json.dumps(
+        #     obj.to_dicts()
+        # )
     if isinstance(obj, pd.DataFrame):
-        return "```\n\n" + obj._repr_html_() + "\n\n```\n", json.dumps(
-            obj.to_dict(orient="records")
+        # If the DataFrame contains more than 110 rows, truncate it to 100 rows
+        # and keep track of how many rows were truncated.
+        truncation_warning = ""
+        limit = 20
+        if obj.shape[0] > limit:
+            orig_row_count = obj.shape[0]
+            obj = obj.head(limit)
+            truncation_warning = f"\n\nNote: Display truncated to {limit} rows; {orig_row_count - obj.shape[0]} rows not shown.\n"
+
+        s = obj.style
+        s.set_table_attributes('class="table table-striped table-sm"')
+
+        return (
+            False,
+            s.to_html() + truncation_warning,
+            obj.to_json(orient="records") + truncation_warning,
         )
     else:
-        return default_repr(), default_repr()
+        return True, default_repr(), default_repr()

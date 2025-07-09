@@ -1,5 +1,4 @@
 import base64
-import json
 import os
 from pathlib import Path
 
@@ -75,8 +74,11 @@ def server(input, output, session):
                 if result.output:
                     await mds.code(result.output, ensure_newline_after=True)
                 if result.return_value is not None:
-                    user_value, model_value = render_value(result.return_value)
-                    await mds.code(user_value, ensure_newline_after=True)
+                    is_code, user_value, model_value = render_value(result.return_value)
+                    if is_code:
+                        await mds.code(user_value, ensure_newline_after=True)
+                    else:
+                        await mds.md(user_value, ensure_newline_after=True)
                     return_value_repr = model_value
                 if result.error is not None:
                     # TODO: Traceback
@@ -97,18 +99,18 @@ def server(input, output, session):
                     + (f"Error: {str(result.error)}\n" if result.error else "")
                 )
                 if model_text_output:
-                    results.append(ContentText(model_text_output))
+                    results.append(ContentText(text=model_text_output))
                 if result.plot_data is not None:
-                    results.append(ContentImageInline("image/png", encoded))
+                    results.append(ContentImageInline(image_content_type="image/png", data=encoded))
         finally:
             await mds.close()
         
         coalesced_results = coalesce_text_results(results)
-        return ContentToolResult("", coalesced_results, None)
+        return ContentToolResult(value=coalesced_results)
 
     @chat.on_user_submit
     async def on_user_submit():
-        response = await chat_session.stream_async(chat.user_input())
+        response = await chat_session.stream_async(chat.user_input(), content="all")
         await chat.append_message_stream(response)
 
     @reactive.Effect
@@ -127,12 +129,12 @@ def coalesce_text_results(results):
             current_text += result.text
         else:
             if current_text:
-                coalesced.append(ContentText(current_text))
+                coalesced.append(ContentText(text=current_text))
                 current_text = ""
             coalesced.append(result)
     
     if current_text:
-        coalesced.append(ContentText(current_text))
+        coalesced.append(ContentText(text=current_text))
         
     return coalesced
 
